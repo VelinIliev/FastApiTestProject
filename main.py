@@ -16,7 +16,7 @@ BOOKS = [
 @app.get("/")
 async def root():
     print('test')
-    return {'message': 'Hello Velko!!!'}
+    return {'message': 'Hello Velko'}
 
 
 @app.get("/books")
