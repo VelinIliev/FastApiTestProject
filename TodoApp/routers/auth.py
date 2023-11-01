@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from jose import jwt, JWTError
 from passlib.context import CryptContext
-from pydantic import BaseModel
+from pydantic import BaseModel, validator, field_validator
 from sqlalchemy.orm import Session
 from starlette import status
 
@@ -35,8 +35,8 @@ def get_db():
 db_dependency = Annotated[Session, Depends(get_db)]
 
 
-def create_access_token(username: str, user_id: int, expires_delta: timedelta):
-    encode = {'sub': username, 'id': user_id}
+def create_access_token(username: str, user_id: int, role: str, expires_delta: timedelta):
+    encode = {'sub': username, 'id': user_id, 'role': role}
     expires = datetime.utcnow() + expires_delta
     encode.update({'exp': expires})
     return jwt.encode(encode, SECRET_KEY, algorithm=ALGORITHM)
@@ -47,11 +47,12 @@ async def get_current_user(token: Annotated[str, Depends(oath2_bearer)]):
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get('sub')
         user_id: int = payload.get('id')
+        role: str = payload.get('role')
         if not username or not user_id:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail='Could not validate user.')
-        return {'username': username, 'id': user_id}
+        return {'username': username, 'id': user_id, 'role': role}
 
     except JWTError:
         raise HTTPException(
@@ -75,6 +76,13 @@ class UserRequest(BaseModel):
     last_name: str
     password: str
     role: str
+    phone_number: str
+
+    @field_validator('username')
+    def validate_username(cls, value):
+        if len(value) < 3:
+            raise ValueError("User name must be at least 3 symbols")
+        return value
 
 
 class Token(BaseModel):
@@ -96,6 +104,7 @@ async def create_user(db: db_dependency, create_user_request: UserRequest):
         last_name=create_user_request.last_name,
         password=bcrypt_context.hash(create_user_request.password),
         role=create_user_request.role,
+        phone_number=create_user_request.phone_number,
         is_active=True
     )
     db.add(create_user_model)
@@ -113,6 +122,6 @@ async def login_for_access_token(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail='Could not validate user.')
 
-    token = create_access_token(user.username, user.id, timedelta(minutes=30))
+    token = create_access_token(user.username, user.id, user.role, timedelta(minutes=30))
 
     return {'access_token': token, 'token_type': 'bearer'}

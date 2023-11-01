@@ -1,5 +1,5 @@
 from database import Base
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, func
 
 
 class Users(Base):
@@ -13,6 +13,8 @@ class Users(Base):
     password = Column(String)
     is_active = Column(Boolean, default=True)
     role = Column(String)
+    phone_number = Column(String)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
 class Todos(Base):
